@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+
+    <style>
+      body {
+        margin: 0;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas></canvas>
+
+    <script>
+      const canvas = document.querySelector('canvas')
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+
+      const padding = 10
+
+      const circles = []
+      for (let i = 1; i <= 50; i++) {
+        const circle = createCircle()
+        let counter = 0
+        do {
+          circle.x = generateRandomInteger(
+            0 + circle.radius + padding,
+            canvas.width - circle.radius - padding - 1
+          )
+          circle.y = generateRandomInteger(
+            0 + circle.radius + padding,
+            canvas.height - circle.radius - padding - 1
+          )
+          counter++
+        } while (
+          circles.some(circle2 => doCirclesIntersect(circle, circle2)) &&
+          counter < 10
+        )
+
+        circle.moveDirection = generateRandomFloat(0, 2 * Math.PI)
+
+        if (circles.some(circle2 => doCirclesIntersect(circle, circle2))) {
+          break
+        } else {
+          circles.push(circle)
+        }
+      }
+
+      function createCircle() {
+        return {
+          x: 0,
+          y: 0,
+          radius: 50,
+          color: 'black',
+          moveDirection: 0,
+        }
+      }
+
+      const context = canvas.getContext('2d')
+
+      tickAndRequestNextAnimationFrame()
+
+      function tickAndRequestNextAnimationFrame() {
+        update()
+        context.clearRect(0, 0, canvas.width, canvas.height)
+        draw()
+        requestAnimationFrame(tickAndRequestNextAnimationFrame)
+      }
+
+      function update() {
+        for (const circle of circles) {
+          calculateNextPosition(circle)
+        }
+        collision()
+        for (const circle of circles) {
+          calculateNextPositionAgainIfHasCollided(circle)
+          updatePosition(circle)
+          cleanState(circle)
+        }
+      }
+
+      function draw() {
+        for (const circle of circles) {
+          drawCircle(circle)
+        }
+      }
+
+      function calculateNextPosition(circle) {
+        circle.nextX = circle.x + 1 * Math.cos(circle.moveDirection)
+        circle.nextY = circle.y + 1 * Math.sin(circle.moveDirection)
+      }
+
+      function calculateNextPositionAgainIfHasCollided(circle) {
+        if (circle.hasCollided) {
+          circle.nextX = circle.x + 1 * Math.cos(circle.moveDirection)
+          circle.nextY = circle.y + 1 * Math.sin(circle.moveDirection)
+        }
+      }
+
+      function cleanState(circle) {
+        delete circle.nextX
+        delete circle.nextY
+        delete circle.hasCollided
+      }
+
+      function collision() {
+        for (const circle of circles) {
+          collisionWithWalls(circle)
+        }
+
+        for (const circle of circles) {
+          for (const circle2 of circles) {
+            if (circle !== circle2 && doCirclesIntersect(circle, circle2)) {
+              circle.moveDirection = normalizeAngle(
+                Math.atan2(circle2.y - circle.y, circle2.x - circle.x) + Math.PI
+              )
+              circle.hasCollided = true
+            }
+          }
+        }
+      }
+
+      function collisionWithWalls(circle) {
+        if (circle.nextX < circle.radius) {
+          const alpha = circle.moveDirection - Math.PI
+          const newAngle = 2 * Math.PI - alpha
+          circle.moveDirection = newAngle
+          circle.nextX = circle.x + 1 * Math.cos(circle.moveDirection)
+          circle.nextY = circle.y + 1 * Math.sin(circle.moveDirection)
+          circle.hasCollided = true
+        } else if (circle.nextX > canvas.width - circle.radius) {
+          const alpha = circle.moveDirection
+          const newAngle = Math.PI - alpha
+          circle.moveDirection = newAngle
+          circle.nextX = circle.x + 1 * Math.cos(circle.moveDirection)
+          circle.nextY = circle.y + 1 * Math.sin(circle.moveDirection)
+          circle.hasCollided = true
+        }
+        if (circle.nextY < 0 + circle.radius) {
+          const alpha = circle.moveDirection - 1.5 * Math.PI
+          const newAngle = 0.5 * Math.PI - alpha
+          circle.moveDirection = newAngle
+          circle.nextX = circle.x + 1 * Math.cos(circle.moveDirection)
+          circle.nextY = circle.y + 1 * Math.sin(circle.moveDirection)
+          circle.hasCollided = true
+        } else if (circle.nextY > canvas.height - circle.radius) {
+          const alpha = circle.moveDirection
+          const newAngle = 2 * Math.PI - alpha
+          circle.moveDirection = newAngle
+          circle.nextX = circle.x + 1 * Math.cos(circle.moveDirection)
+          circle.nextY = circle.y + 1 * Math.sin(circle.moveDirection)
+          circle.hasCollided = true
+        }
+      }
+
+      function updatePosition(circle) {
+        circle.x = circle.nextX
+        circle.y = circle.nextY
+      }
+
+      function normalizeAngle(angle) {
+        if (angle > 2 * Math.PI) {
+          angle = angle % (2 * Math.PI)
+        }
+
+        return angle
+      }
+
+      function doCirclesIntersect(circle, circle2) {
+        return (
+          calculateDistance(circle, circle2) < circle.radius + circle2.radius
+        )
+      }
+
+      function calculateDistance(point1, point2) {
+        return Math.sqrt(
+          (point1.x - point2.x) ** 2 + (point1.y - point2.y) ** 2
+        )
+      }
+
+      function drawCircle(circle) {
+        context.save()
+        context.strokeStyle = circle.color
+        context.fillStyle = 'black'
+        context.beginPath()
+        context.arc(circle.x, circle.y, circle.radius, 0, 2 * Math.PI)
+        context.fill()
+        context.stroke()
+        context.restore()
+
+        context.save()
+        context.fillStyle = 'white'
+        context.beginPath()
+        context.arc(circle.x, circle.y, 0.4 * circle.radius, 0, 2 * Math.PI)
+        context.fill()
+        context.restore()
+      }
+
+      function generateRandomInteger(from, to) {
+        return Math.floor(from + Math.random() * (to - from + 1))
+      }
+
+      function generateRandomFloat(from, to) {
+        return from + Math.random() * (to - from)
+      }
+    </script>
+  </body>
+</html>
